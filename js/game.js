@@ -163,7 +163,11 @@ window.Game = (function () {
     // 起始功法
     p.techniques.push(cloneTech(D.TECHNIQUES.find((t) => t.id === "jianjue")));
     p.techniques.push(cloneTech(D.TECHNIQUES.find((t) => t.id === "huti")));
-    if (meta.startTech) p.techniques.push(cloneTech(pickByRarity(D.TECHNIQUES, 0)));
+    if (meta.startTech) {
+      const owned = new Set(p.techniques.map((t) => t.id));
+      const pool = D.TECHNIQUES.filter((t) => !owned.has(t.id));
+      if (pool.length) p.techniques.push(cloneTech(pickByRarity(pool, 0)));
+    }
     // 起始丹药
     meta.startPills.forEach((id) => {
       const base = D.PILLS.find((x) => x.id === id);
@@ -404,11 +408,36 @@ window.Game = (function () {
     recalcStats(state.run.player);
     pushLog(`获得法宝【${a.name}】（${D.RARITY_NAME[a.rarity]}）`, "loot");
   }
+  // 从「玩家尚未习得」的功法中按稀有度抽取；全部习得则返回 null
+  function pickNewTechnique(luck) {
+    const owned = new Set(state.run.player.techniques.map((t) => t.id));
+    const pool = D.TECHNIQUES.filter((t) => !owned.has(t.id));
+    if (!pool.length) return null;
+    return pickByRarity(pool, luck || 0);
+  }
+  // 抽取 n 门互不相同、且玩家未习得的功法（用于坊市）
+  function pickDistinctNewTechniques(n, luck) {
+    const owned = new Set(state.run.player.techniques.map((t) => t.id));
+    const pool = D.TECHNIQUES.filter((t) => !owned.has(t.id));
+    const result = [];
+    while (result.length < n && pool.length) {
+      const t = pickByRarity(pool, luck || 0);
+      result.push(t);
+      pool.splice(pool.indexOf(t), 1);
+    }
+    return result;
+  }
+
   function grantTechnique() {
-    const luck = state.run.player._mods.dropLuck;
-    const t = pickByRarity(D.TECHNIQUES, luck);
-    // 避免重复太多：允许重复但提示
-    state.run.player.techniques.push(cloneTech(t));
+    const p = state.run.player;
+    const t = pickNewTechnique(p._mods.dropLuck);
+    if (!t) {
+      // 已习得全部功法：此卷机缘转化为一枚丹药，不再重复
+      grantPill();
+      pushLog("功法已臻大成，此卷机缘化作一枚丹药。", "loot");
+      return;
+    }
+    p.techniques.push(cloneTech(t));
     pushLog(`习得功法【${t.name}】（${D.RARITY_NAME[t.rarity]}）`, "loot");
   }
   function grantPill() {
@@ -423,15 +452,15 @@ window.Game = (function () {
     const run = state.run;
     const luck = run.player._mods.dropLuck;
     const goods = [];
-    for (let i = 0; i < 3; i++) {
-      const t = pickByRarity(D.TECHNIQUES, luck);
-      goods.push({ kind: "technique", item: t, price: priceOf("technique", t.rarity), gid: uid() });
-    }
+    // 功法：互不相同且玩家未习得；不足 3 门则用丹药补足摊位
+    const techs = pickDistinctNewTechniques(3, luck);
+    techs.forEach((t) => goods.push({ kind: "technique", item: t, price: priceOf("technique", t.rarity), gid: uid() }));
     for (let i = 0; i < 2; i++) {
       const a = pickByRarity(D.ARTIFACTS, luck);
       goods.push({ kind: "artifact", item: a, price: priceOf("artifact", a.rarity), gid: uid() });
     }
-    for (let i = 0; i < 3; i++) {
+    const pillCount = 3 + (3 - techs.length); // 功法摊位空缺由丹药顶上
+    for (let i = 0; i < pillCount; i++) {
       const pl = pickByRarity(D.PILLS, luck);
       goods.push({ kind: "pill", item: pl, price: priceOf("pill", pl.rarity), gid: uid() });
     }

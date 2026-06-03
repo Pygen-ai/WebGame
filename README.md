@@ -1,6 +1,8 @@
 # 一念问道 · 文字修仙 Roguelike
 
-一款纯前端、零依赖的 2D 文字修仙 Roguelike 网页小游戏。打开即玩，支持手机/桌面浏览器。
+一款纯前端、零依赖的 2D 文字修仙 Roguelike 网页小游戏。打开即玩，支持手机/桌面浏览器，可直接上架各类 H5 / 微信小游戏 / 抖音小游戏等平台。
+
+![类型](https://img.shields.io/badge/类型-Roguelike-gold) ![技术](https://img.shields.io/badge/技术-原生JS-blue) ![依赖](https://img.shields.io/badge/依赖-无-green)
 
 ## 玩法简介
 
