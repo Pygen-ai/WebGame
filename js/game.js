@@ -148,6 +148,7 @@ window.Game = (function () {
   }
 
   function startRun(root) {
+    _checkpoint = null; // 新局清除上一局快照
     const meta = metaModSum();
     const p = {
       root: root,
@@ -640,11 +641,24 @@ window.Game = (function () {
     if (state.run.log.length > 200) state.run.log.shift();
   }
 
-  /* ---------------- 存档（局内） ---------------- */
+  /* ---------------- 存档（局内） ----------------
+     只在「地图」稳定决策点生成快照，避免战斗/事件中途存档导致：
+     重开节点时残血、丢失丹药、层选择卡死等问题。
+     节点进行中不更新快照；中断后从该节点之前的干净地图状态恢复。 */
+  let _checkpoint = null;
+  function checkpointRun() {
+    if (!state.run) { _checkpoint = null; return; }
+    try {
+      const slim = Object.assign({}, state.run, { combat: null });
+      slim._screen = "map";
+      _checkpoint = JSON.stringify({ run: slim });
+    } catch (e) { _checkpoint = null; }
+  }
   function saveRun() {
     if (!state.run) { localStorage.removeItem(SAVE_KEY); return; }
+    // 持久化最近的地图快照；若尚未产生快照（极早期），退化为当前精简态
+    if (_checkpoint) { localStorage.setItem(SAVE_KEY, _checkpoint); return; }
     try {
-      // 不持久化战斗实例（含玩家引用副本，臃肿且读档时会重置）
       const slim = Object.assign({}, state.run, { combat: null });
       localStorage.setItem(SAVE_KEY, JSON.stringify({ run: slim }));
     } catch (e) {}
@@ -673,7 +687,7 @@ window.Game = (function () {
     } catch (e) {}
     return false;
   }
-  function clearSave() { localStorage.removeItem(SAVE_KEY); }
+  function clearSave() { localStorage.removeItem(SAVE_KEY); _checkpoint = null; }
   function abandonRun() { state.run = null; clearSave(); state.screen = "title"; }
 
   /* ---------------- 导出 ---------------- */
@@ -685,7 +699,7 @@ window.Game = (function () {
     grantArtifact, grantTechnique, grantPill,
     gainExp, onCombatEnd, continueAfterReward, finishNode,
     usePillOutOfCombat, buyMeta, metaCost, pushLog,
-    saveRun, hasSave, loadRun, clearSave, abandonRun,
+    saveRun, checkpointRun, hasSave, loadRun, clearSave, abandonRun,
     saveMeta,
   };
 })();

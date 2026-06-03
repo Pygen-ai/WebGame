@@ -26,7 +26,12 @@ window.UI = (function () {
   function render() {
     const s = G.state;
     G.saveMeta();
-    if (s.run) { s.run._screen = s.screen; G.saveRun(); }
+    if (s.run) {
+      s.run._screen = s.screen;
+      // 仅在「地图」稳定点刷新存档快照；节点进行中不覆盖，保证中断后从干净状态恢复
+      if (s.screen === "map") G.checkpointRun();
+      G.saveRun();
+    }
     const app = $app();
     app.innerHTML = "";
     let view;
